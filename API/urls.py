@@ -16,8 +16,9 @@ Including another URLconf
 """
 
 from django.urls import path
-from .views import *
+from .views import assistant, project_list
 
 urlpatterns = [
     path("", assistant.as_view(), name="index"),   
+    path("projects/", project_list, name="project_list"),   
 ]
