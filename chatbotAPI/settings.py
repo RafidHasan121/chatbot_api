@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'API',
 ]
 
@@ -142,12 +143,3 @@ MEDIA_ROOT = BASE_DIR/"media"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 load_dotenv()
-try:
-    API_KEY = os.getenv("API_KEY")
-except:
-    API_KEY = os.environ.get("API_KEY")
-
-try:
-    a_id = os.getenv("ASSISTANT_ID")
-except:
-    a_id = os.environ.get("ASSISTANT_ID")
