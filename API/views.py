@@ -71,7 +71,7 @@ def continue_run_request(client, msg, t_id):
     )
     run = client.beta.threads.runs.create(
         thread_id=t_id,
-        assistant_id=a_id
+        assistant_id=os.environ.get("ASSISTANT_ID")
     )
     return run
 
