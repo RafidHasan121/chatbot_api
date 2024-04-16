@@ -64,9 +64,9 @@ def get_projects(supabase):
     return response
 
 
-def get_routes(supabase, project_name):
+def get_routes(supabase, project_id):
     response = supabase.table('projects').select(
-        "routes").eq('name', project_name).execute()
+        "routes").eq('name', project_id).execute()
     return response
 
 
@@ -83,9 +83,9 @@ def continue_run_request(client, msg, t_id):
     return run
 
 
-def new_run_request(client, msg, project_name):
+def new_run_request(client, msg, project_id):
     supabase = init_supabase()
-    routes = get_routes(supabase, project_name)
+    routes = get_routes(supabase, project_id)
 
     # convert json data
     routes_json = json.dumps(routes.data[0].get('routes'))
@@ -163,7 +163,7 @@ class assistant(APIView):
     def post(self, request, *args, **kwargs):
         """
         message = charfield #the_query
-        project = charfield #project_name
+        project = intfield #project_id
 
         return generated response
         """
