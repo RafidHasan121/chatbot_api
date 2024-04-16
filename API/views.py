@@ -66,7 +66,7 @@ def get_projects(supabase):
 
 def get_routes(supabase, project_id):
     response = supabase.table('projects').select(
-        "routes").eq('name', project_id).execute()
+        "routes").eq('id', project_id).execute()
     return response
 
 
