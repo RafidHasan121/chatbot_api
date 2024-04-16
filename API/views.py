@@ -157,7 +157,7 @@ class assistant(APIView):
         thread = request.query_params.get("thread_id")
         response_message = get_request(client, run, thread)
         if response_message == False:
-            return Response("generating", status=400)
+            return Response("generating", status=201)
         return Response(response_message)
 
     def post(self, request, *args, **kwargs):
