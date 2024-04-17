@@ -25,33 +25,23 @@ def count_tokens(filename: str, model_name="gpt-4") -> int:
         print("File not found.")
         return 0
 
-
 def create_chunks(the_file, model_name="gpt-4-turbo-preview", max_tokens_per_chunk=125000):
-    # Get the tokenizer encoding for the specified model
-    encoding = tiktoken.encoding_for_model(model_name)
+    # Initialize the tokenizer
+    tokenizer = tiktoken.encoding_for_model(model_name)
 
-    # Divide the text into chunks based on tokens
-    chunks = []
-    current_chunk = ""
-    current_token_count = 0
+    # Encode the text_data into token integers
+    token_integers = tokenizer.encode(the_file)
 
-    for line in the_file.split('\n'):
-        line_tokens = encoding.encode(line)
-        line_token_count = len(line_tokens)
-
-        if current_token_count + line_token_count > max_tokens_per_chunk:
-            chunks.append(current_chunk)
-            current_chunk = line + '\n'
-            current_token_count = line_token_count
-        else:
-            current_chunk += line + '\n'
-            current_token_count += line_token_count
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
+    # Split the token integers into chunks based on max_tokens
+    chunks = [
+        token_integers[i : i + max_tokens_per_chunk]
+        for i in range(0, len(token_integers), max_tokens_per_chunk)
+    ]
+    
+    # Decode token chunks back to strings
+    chunks = [tokenizer.decode(chunk) for chunk in chunks]
     return chunks
-
+    
 
 def init_supabase(url: str = os.environ.get("SUPABASE_URL"), key: str = os.environ.get("SUPABASE_KEY")):
     supabase: Client = create_client(url, key)
@@ -89,7 +79,7 @@ def new_run_request(client, msg, project_id):
 
     # convert json data
     routes_json = json.dumps(routes.data[0].get('routes'))
-
+    
     # creating chunks
     file_list = create_chunks(routes_json)
 
@@ -104,20 +94,19 @@ def new_run_request(client, msg, project_id):
         in_memory_file.write(chunk)
         encoded_bytes = in_memory_file.getvalue().encode('utf-8')
         bytes_io = BytesIO(encoded_bytes)
-        bytes_io.name = f'chunk{i+1}.txt'
+        bytes_io.name = f'project_id-{project_id}_chunk{i+1}.txt'
         file_object = client.files.create(
             file=bytes_io,
             purpose="assistants"
         )
         id_list.append(file_object.id)
-        print(file_object)
 
     # create run
     run = client.beta.threads.create_and_run(
         assistant_id=os.environ.get("ASSISTANT_ID"),
         thread={
             "messages": [
-                {"role": "user", "content": "The file attached is a .txt file which has a json in it, do the following for the json" +
+                {"role": "user", "content": "For the files attached, do the following for the json" +
                     "\n" + msg, "file_ids": id_list}
             ]
         }
@@ -136,6 +125,7 @@ def get_request(client, run_id, thread_id):
         # getting the thread messages list
         thread_messages = client.beta.threads.messages.list(thread_id)
         result = thread_messages.data[0].content[0].text.value
+        # result = thread_messages
         return result
     else:
         return False
@@ -152,7 +142,6 @@ class assistant(APIView):
     def get(self, request, *args, **kwargs):
 
         client = OpenAI(api_key=os.environ.get("API_KEY"))
-        print()
         run = request.query_params.get("run_id")
         thread = request.query_params.get("thread_id")
         response_message = get_request(client, run, thread)
