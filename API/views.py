@@ -1,6 +1,7 @@
 from io import BytesIO, StringIO
 import json
 import time
+from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,7 +13,14 @@ from openai import OpenAI
 # create functions here
 
 
-def count_tokens(filename: str, model_name="gpt-4") -> int:
+def streaming_generator(run):
+    for chunk in run:
+        if chunk.event == "thread.message.delta":
+            print(chunk.data)
+            yield chunk.data.delta.content[0].text.value
+
+
+def count_tokens(filename: str, model_name="gpt-4-turbo") -> int:
     """Count the number of tokens in a file using TikToken."""
     try:
         with open(filename, 'r') as file:
@@ -25,7 +33,8 @@ def count_tokens(filename: str, model_name="gpt-4") -> int:
         print("File not found.")
         return 0
 
-def create_chunks(the_file, model_name="gpt-4-turbo-preview", max_tokens_per_chunk=125000):
+
+def create_chunks(the_file, model_name="gpt-4-turbo", max_tokens_per_chunk=125000):
     # Initialize the tokenizer
     tokenizer = tiktoken.encoding_for_model(model_name)
 
@@ -34,14 +43,14 @@ def create_chunks(the_file, model_name="gpt-4-turbo-preview", max_tokens_per_chu
 
     # Split the token integers into chunks based on max_tokens
     chunks = [
-        token_integers[i : i + max_tokens_per_chunk]
+        token_integers[i: i + max_tokens_per_chunk]
         for i in range(0, len(token_integers), max_tokens_per_chunk)
     ]
-    
+
     # Decode token chunks back to strings
     chunks = [tokenizer.decode(chunk) for chunk in chunks]
     return chunks
-    
+
 
 def init_supabase(url: str = os.environ.get("SUPABASE_URL"), key: str = os.environ.get("SUPABASE_KEY")):
     supabase: Client = create_client(url, key)
@@ -74,15 +83,24 @@ def continue_run_request(client, msg, t_id):
 
 
 def new_run_request(client, msg, project_id):
+    from timeit import default_timer as timer
+    start = timer()
+
     supabase = init_supabase()
     routes = get_routes(supabase, project_id)
 
+    check1 = timer()
+
     # convert json data
     routes_json = json.dumps(routes.data[0].get('routes'))
-    
+
+    check2 = timer()
+
     # creating chunks
     file_list = create_chunks(routes_json)
 
+    check3 = timer()
+    
     # counting each chunk token size
     # for each in file_list:
     #     print(count_tokens(each))
@@ -101,26 +119,48 @@ def new_run_request(client, msg, project_id):
         )
         id_list.append(file_object.id)
 
-    # create run
+    check4 = timer()
+
+    # create run non async
+
+    # run = client.beta.threads.create_and_run(
+    #     assistant_id=os.environ.get("ASSISTANT_ID"),
+    #     thread={
+    #         "messages": [
+    #             {"role": "user", "content": msg, "file_ids": id_list}
+    #         ]
+    #     },
+    #     stream=True
+    # )
+    
+    # create run async
+    
     run = client.beta.threads.create_and_run(
         assistant_id=os.environ.get("ASSISTANT_ID"),
         thread={
             "messages": [
-                {"role": "user", "content": "For the files attached, do the following for the json" +
-                    "\n" + msg, "file_ids": id_list}
+                {"role": "user", "content": msg, "file_ids": id_list}
             ]
-        }
+        },
+        stream=True
     )
+    check5 = timer()
+    print("getting routes: " + str(check1-start))
+    print("converting json: " + str(check2-check1))
+    print("creating chunks: " + str(check3-check2))
+    print("uploading files: " + str(check4-check3))
+    print("creating thread and run: " + str(check5-check4))
+
     return run
 
 
 def get_request(client, run_id, thread_id):
-    
+
     run = client.beta.threads.runs.retrieve(
-            thread_id=thread_id,
-            run_id=run_id
-        )
-    
+        thread_id=thread_id,
+        run_id=run_id
+    )
+
     if run.status == 'completed':
         # getting the thread messages list
         thread_messages = client.beta.threads.messages.list(thread_id)
@@ -129,7 +169,8 @@ def get_request(client, run_id, thread_id):
         return result
     else:
         return False
-    
+
+
 # Create your views here.
 
 class assistant(APIView):
@@ -176,10 +217,18 @@ class assistant(APIView):
         # this is what works
         else:
             run = new_run_request(client, message, project)
-            
-        return Response({
-            "run_id" : run.id,
-            "thread_id" : run.thread_id})
+
+        # async response 
+        
+        response = StreamingHttpResponse(
+            streaming_generator(run), status=200, content_type='text/event-stream')
+        return response
+
+        #sync response 
+        
+        # return Response({
+        #     "run_id" : run.id,
+        #     "thread_id" : run.thread_id})
 
 
 @api_view(['GET'])
