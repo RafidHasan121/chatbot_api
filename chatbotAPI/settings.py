@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-f+l09=ar&o*29)^ck!3w6dx0lrc3picu(z#kw94d89zyh_%yjb
 DEBUG = os.environ['DEBUG'] == 'TRUE'
 
 
-ALLOWED_HOSTS = ['.vercel.app', '.now.sh', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['.vercel.app', '.now.sh', '127.0.0.1', 'localhost', 'mysite-pnb5.onrender.com']
 
 # LOAD DOTENV
 
