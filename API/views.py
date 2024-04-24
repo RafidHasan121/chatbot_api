@@ -116,7 +116,14 @@ def get_routes(supabase, project_id):
 
 
 def insert_chat_history(project_id, thread_id, message_id, message):
-    pass
+    supabase = init_supabase()
+    data, count = supabase.table('chat_history').insert({
+        "project_id" : project_id,
+        "thread_id": thread_id,
+        "message_id": message_id,
+        "message": message
+    }).execute()
+    return data
 
 
 def continue_run_request(client, project, msg, t_id):
@@ -278,7 +285,7 @@ class assistant(APIView):
             assistant_id=os.environ.get("ASSISTANT_ID"),
         )
 
-        return Response({"res": "JSON updated"}, status=200)
+        return Response({"result": "JSON updated"}, status=200)
 
 
 @api_view(['GET'])
@@ -290,3 +297,12 @@ def project_list(request):
     client = init_supabase()
     project_list = get_projects(client)
     return Response(project_list.data)
+
+@api_view(['POST'])
+def supabase_test(request):
+    project_id = request.data.get("project")
+    thread_id =  request.data.get("thread")
+    message_id = request.data.get("message")
+    message = request.data.get("the_message")
+    data = insert_chat_history(project_id, thread_id, message_id, message)
+    return Response(data, status=200)

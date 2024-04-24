@@ -16,9 +16,10 @@ Including another URLconf
 """
 
 from django.urls import path
-from .views import assistant, project_list
+from .views import assistant, project_list, supabase_test
 
 urlpatterns = [
     path("", assistant.as_view(), name="index"),   
-    path("projects/", project_list, name="project_list"),   
+    path("projects/", project_list, name="project_list"),
+    # path("supa/", supabase_test, name="supabase_test"),    
 ]
