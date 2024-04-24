@@ -13,6 +13,52 @@ from openai import OpenAI
 # create functions here
 
 
+def json_uploader(client, project_id):
+    from timeit import default_timer as timer
+    start = timer()
+
+    supabase = init_supabase()
+    routes = get_routes(supabase, project_id)
+
+    check1 = timer()
+
+    # convert json data
+    routes_json = json.dumps(routes.data[0].get('routes'))
+
+    check2 = timer()
+
+    # creating chunks
+    file_list = create_chunks(routes_json)
+
+    check3 = timer()
+
+    # counting each chunk token size
+    # for each in file_list:
+    #     print(count_tokens(each))
+
+    # create files in openai
+    id_list = []
+    for i, chunk in enumerate(file_list):
+        in_memory_file = StringIO()
+        in_memory_file.write(chunk)
+        encoded_bytes = in_memory_file.getvalue().encode('utf-8')
+        bytes_io = BytesIO(encoded_bytes)
+        bytes_io.name = f'project_id-{project_id}_chunk{i+1}.txt'
+        file_object = client.files.create(
+            file=bytes_io,
+            purpose="assistants"
+        )
+        id_list.append(file_object.id)
+
+    check4 = timer()
+
+    print("getting routes: " + str(check1-start))
+    print("converting json: " + str(check2-check1))
+    print("creating chunks: " + str(check3-check2))
+    print("uploading files: " + str(check4-check3))
+    return id_list
+
+
 def streaming_generator(run):
     for chunk in run:
         if chunk.event == "thread.message.delta":
@@ -59,7 +105,7 @@ def init_supabase(url: str = os.environ.get("SUPABASE_URL"), key: str = os.envir
 
 def get_projects(supabase):
     response = supabase.table('projects').select(
-        "name", count='exact').execute()
+        "name", "id", count='exact').execute()
     return response
 
 
@@ -69,87 +115,71 @@ def get_routes(supabase, project_id):
     return response
 
 
-def continue_run_request(client, msg, t_id):
+def insert_chat_history(project_id, thread_id, message_id, message):
+    pass
+
+
+def continue_run_request(client, project, msg, t_id):
     thread_message = client.beta.threads.messages.create(
         t_id,
         role="user",
         content=msg,
     )
-    run = client.beta.threads.runs.create(
-        thread_id=t_id,
-        assistant_id=os.environ.get("ASSISTANT_ID")
-    )
+
+    insert_chat_history(project_id=project, thread_id=t_id,
+                        message_id=thread_message.id, message=msg)
+
+    try:
+        run = client.beta.threads.runs.create(
+            thread_id=t_id,
+            assistant_id=os.environ.get("ASSISTANT_ID"),
+            stream=True
+        )
+    except:
+        return False
+    
     return run
 
 
 def new_run_request(client, msg, project_id):
     from timeit import default_timer as timer
+
+    id_list = json_uploader(client, project_id)
+
     start = timer()
 
-    supabase = init_supabase()
-    routes = get_routes(supabase, project_id)
+    # creating empty thread and message
 
-    check1 = timer()
-
-    # convert json data
-    routes_json = json.dumps(routes.data[0].get('routes'))
-
-    check2 = timer()
-
-    # creating chunks
-    file_list = create_chunks(routes_json)
-
-    check3 = timer()
+    empty_thread = client.beta.threads.create()
     
-    # counting each chunk token size
-    # for each in file_list:
-    #     print(count_tokens(each))
-
-    # create files in openai
-    id_list = []
-    for i, chunk in enumerate(file_list):
-        in_memory_file = StringIO()
-        in_memory_file.write(chunk)
-        encoded_bytes = in_memory_file.getvalue().encode('utf-8')
-        bytes_io = BytesIO(encoded_bytes)
-        bytes_io.name = f'project_id-{project_id}_chunk{i+1}.txt'
-        file_object = client.files.create(
-            file=bytes_io,
-            purpose="assistants"
-        )
-        id_list.append(file_object.id)
-
-    check4 = timer()
-
-    # create run non async
-
-    # run = client.beta.threads.create_and_run(
-    #     assistant_id=os.environ.get("ASSISTANT_ID"),
-    #     thread={
-    #         "messages": [
-    #             {"role": "user", "content": msg, "file_ids": id_list}
-    #         ]
-    #     },
-    #     stream=True
-    # )
-    
-    # create run async
-    
-    run = client.beta.threads.create_and_run(
-        assistant_id=os.environ.get("ASSISTANT_ID"),
-        thread={
-            "messages": [
-                {"role": "user", "content": msg, "file_ids": id_list}
-            ]
-        },
-        stream=True
+    thread_message = client.beta.threads.messages.create(
+        empty_thread.id,
+        role="user",
+        content=msg
     )
+
+    # creating chat history entry
+    
+    insert_chat_history(project_id=project_id, 
+                        thread_id=thread_message.thread_id,
+                        message_id=thread_message.id,
+                        message=msg)
+    
+    # creating run
+    try:
+        
+        run = client.beta.threads.runs.create(
+            thread_id=thread_message.thread_id,
+            assistant_id=os.environ.get("ASSISTANT_ID"),
+            stream=True
+        )
+        
+    except:
+        return False
+
     check5 = timer()
-    print("getting routes: " + str(check1-start))
-    print("converting json: " + str(check2-check1))
-    print("creating chunks: " + str(check3-check2))
-    print("uploading files: " + str(check4-check3))
-    print("creating thread and run: " + str(check5-check4))
+
+    print("creating thread and run: " + str(check5-start))
 
     return run
 
@@ -200,35 +230,55 @@ class assistant(APIView):
 
         message = request.data.get("message")
         project = request.data.get("project")
-        try:
-            t_id = request.session['thread_id']
-        except:
-            t_id = None
+        t_id = request.data.get("t_id")
 
         client = OpenAI(api_key=os.environ.get("API_KEY"))
 
         # previous thread
-        # it doesn't work now
+
         if t_id:
-            run = continue_run_request(client, message, t_id)
-            print(t_id)
+            run = continue_run_request(client, project, message, t_id)
 
         # new thread
-        # this is what works
+
         else:
             run = new_run_request(client, message, project)
 
-        # async response 
+        if run == False:
+            return Response("Error while running",status=400)
         
+        # async response
+
         response = StreamingHttpResponse(
             streaming_generator(run), status=200, content_type='text/event-stream')
         return response
 
-        #sync response 
-        
+        # sync response
+
         # return Response({
         #     "run_id" : run.id,
         #     "thread_id" : run.thread_id})
+
+    def patch(self, request, *args, **kwargs):
+        project_id = request.data.get("project")
+        t_id = request.data.get("t_id")
+        client = OpenAI(api_key=os.environ.get("API_KEY"))
+
+        supabase = init_supabase()
+        json_data = get_routes(supabase, project_id)
+        id_list = json_uploader(client, project_id)
+
+        client.beta.threads.messages.create(
+            thread_id=t_id, role="user",
+            content="the updated json for the project has been attached to this message",
+            file_ids=id_list)
+
+        run = client.beta.threads.runs.create(
+            thread_id=t_id,
+            assistant_id=os.environ.get("ASSISTANT_ID"),
+        )
+
+        return Response({"res": "JSON updated"}, status=200)
 
 
 @api_view(['GET'])
