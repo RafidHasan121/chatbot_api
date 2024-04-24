@@ -118,7 +118,7 @@ def get_routes(supabase, project_id):
 def insert_chat_history(project_id, thread_id, message_id, message):
     supabase = init_supabase()
     data, count = supabase.table('chat_history').insert({
-        "project_id" : project_id,
+        "project_id": project_id,
         "thread_id": thread_id,
         "message_id": message_id,
         "message": message
@@ -136,16 +136,7 @@ def continue_run_request(client, project, msg, t_id):
     insert_chat_history(project_id=project, thread_id=t_id,
                         message_id=thread_message.id, message=msg)
 
-    try:
-        run = client.beta.threads.runs.create(
-            thread_id=t_id,
-            assistant_id=os.environ.get("ASSISTANT_ID"),
-            stream=True
-        )
-    except:
-        return False
-    
-    return run
+    return thread_message
 
 
 def new_run_request(client, msg, project_id):
@@ -158,40 +149,48 @@ def new_run_request(client, msg, project_id):
     # creating empty thread and message
 
     empty_thread = client.beta.threads.create()
-    
+
     thread_message = client.beta.threads.messages.create(
         empty_thread.id,
         role="user",
-        content=msg
+        content=msg,
+        file_ids = id_list
     )
 
     # creating chat history entry
-    
-    insert_chat_history(project_id=project_id, 
+
+    insert_chat_history(project_id=project_id,
                         thread_id=thread_message.thread_id,
                         message_id=thread_message.id,
                         message=msg)
-    
-    # creating run
-    try:
-        
-        run = client.beta.threads.runs.create(
-            thread_id=thread_message.thread_id,
-            assistant_id=os.environ.get("ASSISTANT_ID"),
-            stream=True
-        )
-        
-    except:
-        return False
 
     check5 = timer()
 
-    print("creating thread and run: " + str(check5-start))
+    print("inserting chat history: " + str(check5-start))
+
+    return thread_message
+
+
+def the_run(client, thread_id):
+    # creating run
+    try:
+
+        run = client.beta.threads.runs.create(
+            thread_id=thread_id,
+            assistant_id=os.environ.get("ASSISTANT_ID"),
+            stream=True
+        )
+
+    except:
+        return False
 
     return run
 
 
 def get_request(client, run_id, thread_id):
+    """
+    The sync get request. Currently unused
+    """
 
     run = client.beta.threads.runs.retrieve(
         thread_id=thread_id,
@@ -217,22 +216,57 @@ class assistant(APIView):
         "OpenAI-Beta": "assistants=v1"
     }
 
+    # def get(self, request, *args, **kwargs):
+
+    #     client = OpenAI(api_key=os.environ.get("API_KEY"))
+    #     run = request.query_params.get("run_id")
+    #     thread = request.query_params.get("thread_id")
+    #     response_message = get_request(client, run, thread)
+    #     if response_message == False:
+    #         return Response("generating", status=201)
+    #     return Response(response_message)
+
+
     def get(self, request, *args, **kwargs):
-
+        """
+        request = get
+        thread_id = text # thread_id
+        return streamResponse
+        """
+        
         client = OpenAI(api_key=os.environ.get("API_KEY"))
-        run = request.query_params.get("run_id")
         thread = request.query_params.get("thread_id")
-        response_message = get_request(client, run, thread)
-        if response_message == False:
-            return Response("generating", status=201)
-        return Response(response_message)
+        try:
+            run = client.beta.threads.runs.create(
+            thread_id=thread,
+            assistant_id=os.environ.get("ASSISTANT_ID"),
+            stream=True
+        )
+        except:
+            return False
 
+        if run == False:
+                return Response("Error while running", status=400)
+
+        # async response
+
+        response = StreamingHttpResponse(
+            streaming_generator(run), status=200, content_type='text/event-stream')
+        return response
+
+        # sync response
+
+        # return Response({
+        #     "run_id" : run.id,
+        #     "thread_id" : run.thread_id})
+    
     def post(self, request, *args, **kwargs):
         """
-        message = charfield #the_query
+        request = post
+        message = text #the_query
         project = intfield #project_id
-
-        return generated response
+        t_id = text #thread_id optional if continuation
+        return thread_id, message_id
         """
 
         message = request.data.get("message")
@@ -251,20 +285,10 @@ class assistant(APIView):
         else:
             run = new_run_request(client, message, project)
 
-        if run == False:
-            return Response("Error while running",status=400)
-        
-        # async response
-
-        response = StreamingHttpResponse(
-            streaming_generator(run), status=200, content_type='text/event-stream')
-        return response
-
-        # sync response
-
-        # return Response({
-        #     "run_id" : run.id,
-        #     "thread_id" : run.thread_id})
+        return Response({
+            "thread_id": run.thread_id,
+            "message_id": run.id
+        })
 
     def patch(self, request, *args, **kwargs):
         project_id = request.data.get("project")
@@ -298,10 +322,11 @@ def project_list(request):
     project_list = get_projects(client)
     return Response(project_list.data)
 
+
 @api_view(['POST'])
 def supabase_test(request):
     project_id = request.data.get("project")
-    thread_id =  request.data.get("thread")
+    thread_id = request.data.get("thread")
     message_id = request.data.get("message")
     message = request.data.get("the_message")
     data = insert_chat_history(project_id, thread_id, message_id, message)
