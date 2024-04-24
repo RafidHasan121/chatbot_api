@@ -301,7 +301,7 @@ class assistant(APIView):
 
         client.beta.threads.messages.create(
             thread_id=t_id, role="user",
-            content="the updated json for the project has been attached to this message",
+            content="the updated json for the project has been attached to this message, future queries are based on this JSON",
             file_ids=id_list)
 
         run = client.beta.threads.runs.create(
