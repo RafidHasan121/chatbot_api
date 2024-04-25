@@ -125,9 +125,9 @@ def project_list(request):
 
 @api_view(['GET'])
 def get_chat_history(request):
-    thread_id = request.query_params.get('thread')
-    page : int = request.query_params.get('page') or 0
-    limit : int = request.query_params.get('limit') or 5
+    thread_id = request.query_params.get('thread_id')
+    page : int = request.query_params.get('page_number') or 0
+    limit : int = request.query_params.get('chat_limit') or 5
     supabase = init_supabase()
     data, error = supabase.table('chat_history').select('*').eq('thread_id', thread_id).order('created_at', desc=True).limit(limit).offset(page*limit).execute()
     return Response(data[1])
