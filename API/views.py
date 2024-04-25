@@ -323,11 +323,11 @@ def project_list(request):
     return Response(project_list.data)
 
 
-@api_view(['POST'])
-def supabase_test(request):
-    project_id = request.data.get("project")
-    thread_id = request.data.get("thread")
-    message_id = request.data.get("message")
-    message = request.data.get("the_message")
-    data = insert_chat_history(project_id, thread_id, message_id, message)
-    return Response(data, status=200)
+@api_view(['GET'])
+def get_chat_history(request):
+    thread_id = request.query_params.get('thread')
+    page : int = request.query_params.get('page') or 0
+    limit : int = request.query_params.get('limit') or 5
+    supabase = init_supabase()
+    data, error = supabase.table('chat_history').select('*').eq('thread_id', thread_id).order('created_at', desc=True).limit(limit).offset(page*limit).execute()
+    return Response(data[1])

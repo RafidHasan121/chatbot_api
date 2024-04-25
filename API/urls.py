@@ -16,10 +16,10 @@ Including another URLconf
 """
 
 from django.urls import path
-from .views import assistant, project_list, supabase_test
+from .views import assistant, project_list, get_chat_history
 
 urlpatterns = [
     path("", assistant.as_view(), name="index"),   
     path("projects/", project_list, name="project_list"),
-    # path("supa/", supabase_test, name="supabase_test"),    
+    path("chat/", get_chat_history, name="supabase_test"),    
 ]
