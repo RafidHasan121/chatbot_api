@@ -133,3 +133,14 @@ def get_chat_history(request):
     limit = int(limit)
     data, error = supabase.table('chat_history').select('*').eq('thread_id', thread_id).order('created_at', desc=True).limit(limit).offset(page*limit).execute()
     return Response(data[1])
+
+
+@api_view(['POST'])
+def upload_chat_history(request):
+    role = request.data.get("role")     # "user"/"gpt"
+    project_id = request.data.get("project_id")
+    thread_id = request.data.get("thread_id")
+    message_id = request.data.get("message_id")
+    message = request.data.get("message")
+    insert_chat_history(project_id, thread_id, message_id, message, role)
+    return Response({"status" : "completed"},status=200) 

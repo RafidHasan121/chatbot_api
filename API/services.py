@@ -108,7 +108,7 @@ def get_routes(supabase, project_id):
     return response
 
 
-def insert_chat_history(project_id, thread_id, message_id, message):
+def insert_chat_history(project_id, thread_id, message_id, message, role = "user"):
     supabase = init_supabase()
     data, count = supabase.table('chat_history').insert({
         "project_id": project_id,
