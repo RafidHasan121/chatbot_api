@@ -114,7 +114,8 @@ def insert_chat_history(project_id, thread_id, message_id, message, role = "user
         "project_id": project_id,
         "thread_id": thread_id,
         "message_id": message_id,
-        "message": message
+        "message": message,
+        "role": role
     }).execute()
     return data
 
