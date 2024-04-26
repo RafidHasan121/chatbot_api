@@ -34,26 +34,28 @@ class assistant(APIView):
         return streamResponse
         """
         
-        client = OpenAI(api_key=os.environ.get("API_KEY"))
-        thread = request.query_params.get("thread_id")
         try:
-            run = client.beta.threads.runs.create(
-            thread_id=thread,
-            assistant_id=os.environ.get("ASSISTANT_ID"),
-            stream=True
-        )
+            client = OpenAI(api_key=os.environ.get("API_KEY"))
+            thread = request.query_params.get("thread_id")
+            try:
+                run = client.beta.threads.runs.create(
+                thread_id=thread,
+                assistant_id=os.environ.get("ASSISTANT_ID"),
+                stream=True
+            )
+            except:
+                return False
+
+            if run == False:
+                    return Response("Error while running", status=400)
+
+            # async response
+
+            response = StreamingHttpResponse(
+                streaming_generator(run), status=200, content_type='text/event-stream')
+            return response
         except:
-            return False
-
-        if run == False:
-                return Response("Error while running", status=400)
-
-        # async response
-
-        response = StreamingHttpResponse(
-            streaming_generator(run), status=200, content_type='text/event-stream')
-        return response
-
+            return Response(status=200)
         # sync response
 
         # return Response({
