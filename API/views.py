@@ -68,7 +68,7 @@ class assistant(APIView):
 
         message = request.data.get("message")
         project = request.data.get("project")
-        t_id = request.data.get("t_id")
+        t_id = request.data.get("thread_id")
 
         client = OpenAI(api_key=os.environ.get("API_KEY"))
 
