@@ -66,7 +66,7 @@ class assistant(APIView):
         message = text #the_query
         project = intfield #project_id
         t_id = text #thread_id optional if continuation
-        return thread_id, message_id
+        return thread_id
         """
 
         message = request.data.get("message")
@@ -78,16 +78,15 @@ class assistant(APIView):
         # previous thread
 
         if t_id:
-            run = continue_run_request(client, project, message, t_id)
+            message = continue_run_request(client, project, message, t_id)
 
         # new thread
 
         else:
-            run = new_run_request(client, message, project)
+            message = new_run_request(client, message, project)
 
         return Response({
-            "thread_id": run.thread_id,
-            "message_id": run.id
+            "thread_id": message.thread_id,
         })
 
     def patch(self, request, *args, **kwargs):
@@ -140,7 +139,6 @@ def upload_chat_history(request):
     role = request.data.get("role")     # "user"/"gpt"
     project_id = request.data.get("project_id")
     thread_id = request.data.get("thread_id")
-    message_id = request.data.get("message_id")
     message = request.data.get("message")
-    insert_chat_history(project_id, thread_id, message_id, message, role)
+    insert_chat_history(project_id, thread_id, message, role)
     return Response({"status" : "completed"},status=200) 

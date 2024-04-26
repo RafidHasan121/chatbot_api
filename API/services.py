@@ -108,12 +108,11 @@ def get_routes(supabase, project_id):
     return response
 
 
-def insert_chat_history(project_id, thread_id, message_id, message, role = "user"):
+def insert_chat_history(project_id, thread_id, message, role = "user"):
     supabase = init_supabase()
     data, count = supabase.table('chat_history').insert({
         "project_id": project_id,
         "thread_id": thread_id,
-        "message_id": message_id,
         "message": message,
         "role": role
     }).execute()
@@ -127,8 +126,7 @@ def continue_run_request(client, project, msg, t_id):
         content=msg,
     )
 
-    insert_chat_history(project_id=project, thread_id=t_id,
-                        message_id=thread_message.id, message=msg)
+    insert_chat_history(project_id=project, thread_id=t_id,message=msg)
 
     return thread_message
 
@@ -153,10 +151,7 @@ def new_run_request(client, msg, project_id):
 
     # creating chat history entry
 
-    insert_chat_history(project_id=project_id,
-                        thread_id=thread_message.thread_id,
-                        message_id=thread_message.id,
-                        message=msg)
+    insert_chat_history(project_id=project_id,thread_id=thread_message.thread_id,message=msg)
 
     check5 = timer()
 
