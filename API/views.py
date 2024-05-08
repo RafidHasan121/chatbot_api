@@ -81,6 +81,7 @@ class assistant(APIView):
 
         else:
             message = new_run_request(client, message, project)
+            
 
         return Response({
             "thread_id": message.thread_id,
@@ -139,3 +140,10 @@ def upload_chat_history(request):
     message = request.data.get("message")
     insert_chat_history(project_id, thread_id, message, role)
     return Response({"status" : "completed"},status=200) 
+
+@api_view(['POST'])
+def upload_group_thread(request):
+    project = request.data.get("project_id")
+    member = request.data.get("member_id")
+    insert_group_thread(project, member)
+    return Response({"status" : "completed"},status=200)

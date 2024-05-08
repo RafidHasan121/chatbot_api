@@ -118,6 +118,13 @@ def insert_chat_history(project_id, thread_id, message, role = "user"):
     }).execute()
     return data
 
+def insert_group_thread(project_id, member_id):
+    supabase = init_supabase()
+    data, count  = supabase.table('access_control').insert({
+        "project_id": project_id,
+        "member_id": member_id
+    }).execute()
+    return data
 
 def continue_run_request(client, project, msg, t_id):
     thread_message = client.beta.threads.messages.create(

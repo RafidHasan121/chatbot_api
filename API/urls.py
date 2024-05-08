@@ -16,12 +16,13 @@ Including another URLconf
 """
 
 from django.urls import path
-from .views import assistant, project_list, get_chat_history, upload_chat_history
+from .views import assistant, project_list, get_chat_history, upload_chat_history, upload_group_thread
 
 urlpatterns = [
     path("", assistant.as_view(), name="index"),   
     path("projects/", project_list, name="project_list"),
     path("chat/", get_chat_history, name="supabase_test"),    
     path("upload/", upload_chat_history, name="upload_chat_history"),
+    path("add/", upload_group_thread, name="adding member to group chat"),
     
 ]
