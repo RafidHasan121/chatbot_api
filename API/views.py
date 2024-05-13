@@ -123,12 +123,19 @@ def project_list(request):
 @api_view(['GET'])
 def get_chat_history(request):
     thread_id = request.query_params.get('thread_id')
+    project_id = request.query_params.get('project_id')
     page = request.query_params.get('page_number') or 0
     limit = request.query_params.get('chat_limit') or 5
     supabase = init_supabase()
     page = int(page)
     limit = int(limit)
-    data, error = supabase.table('chat_history').select('*').eq('thread_id', thread_id).order('created_at', desc=True).limit(limit).offset(page*limit).execute()
+    if project_id is None:
+        data, error = supabase.table('chat_history').select('*').eq('thread_id', thread_id).order('created_at', desc=True).limit(limit).offset(page*limit).execute()
+    elif thread_id is None:
+        data, error = supabase.table('chat_history').select('*').eq('project_id', project_id).order('created_at', desc=True).limit(limit).offset(page*limit).execute()
+    else:
+        raise Exception("No key found")
+    
     return Response(data[1])
 
 
@@ -147,11 +154,3 @@ def upload_group_thread(request):
     member = request.data.get("member_id")
     insert_group_thread(project, member)
     return Response({"status" : "completed"},status=200)
-
-@api_view(['GET'])
-def get_thread_id(request):
-    id = request.query_params.get('id')
-    supabase = init_supabase()
-    response = supabase.table('chat_history').select(
-        "thread_id", count='exact').eq('project_id', id).execute()
-    return Response(response)
