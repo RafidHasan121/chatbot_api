@@ -147,3 +147,11 @@ def upload_group_thread(request):
     member = request.data.get("member_id")
     insert_group_thread(project, member)
     return Response({"status" : "completed"},status=200)
+
+@api_view(['GET'])
+def get_thread_id(request):
+    id = request.query_params.get('id')
+    supabase = init_supabase()
+    response = supabase.table('chat_history').select(
+        "thread_id", count='exact').eq('project_id', id).execute()
+    return Response(response)
