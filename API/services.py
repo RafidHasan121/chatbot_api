@@ -118,11 +118,12 @@ def insert_chat_history(project_id, thread_id, message, role = "user"):
     }).execute()
     return data
 
-def insert_group_thread(project_id, member_id):
+def insert_group_thread(project_id, email):
     supabase = init_supabase()
+    member = supabase.table('profiles').select('id').eq('email', email).execute()
     data, count  = supabase.table('access_control').insert({
         "project_id": project_id,
-        "member_id": member_id
+        "member_id": member.data[0].get('id')
     }).execute()
     return data
 

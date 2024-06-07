@@ -92,8 +92,6 @@ class assistant(APIView):
         t_id = request.data.get("t_id")
         client = OpenAI(api_key=os.environ.get("API_KEY"))
 
-        supabase = init_supabase()
-        json_data = get_routes(supabase, project_id)
         id_list = json_uploader(client, project_id)
 
         client.beta.threads.messages.create(
@@ -151,6 +149,6 @@ def upload_chat_history(request):
 @api_view(['POST'])
 def upload_group_thread(request):
     project = request.data.get("project_id")
-    member = request.data.get("member_id")
-    insert_group_thread(project, member)
+    email = request.data.get("email")
+    insert_group_thread(project, email)
     return Response({"status" : "completed"},status=200)
